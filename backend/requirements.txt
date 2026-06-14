@@ -1,0 +1,23 @@
+# --- Core LangGraph + LangChain ---
+langgraph
+langchain-core
+langchain-groq
+
+# --- Data Science ---
+pandas
+numpy
+scikit-learn
+xgboost
+shap
+
+# --- Visualization ---
+matplotlib
+seaborn
+
+# --- API ---
+fastapi
+uvicorn
+python-multipart
+
+# --- Utilities ---
+python-dotenv
