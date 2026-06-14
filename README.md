@@ -92,7 +92,8 @@ flowchart TD
 
 ## 📁 Project Structure
 
-```autonomous-data-scientist/
+```
+autonomous-data-scientist/
 │
 ├── README.md
 ├── .gitignore
