@@ -92,66 +92,57 @@ flowchart TD
 
 ## 📁 Project Structure
 
-```mermaid
-flowchart TD
-    ROOT["📦 autonomous-data-scientist/"] --> BE["📂 backend/"]
-    ROOT --> FE["📂 frontend/"]
-    ROOT --> RMD["📄 README.md"]
-    ROOT --> GIT["📄 .gitignore"]
-
-    BE --> MAIN["📄 main.py\nuvicorn entry point"]
-    BE --> REQ["📄 requirements.txt"]
-    BE --> ENV["📄 .env.example\nGROQ_API_KEY"]
-    BE --> AG["📂 agent/"]
-    BE --> API["📂 api/"]
-    BE --> OUT["📂 outputs/charts/\nmatplotlib PNGs saved here"]
-
-    AG --> ST["📄 state.py\nAgentState TypedDict\n20 shared fields"]
-    AG --> GR["📄 graph.py\nStateGraph assembly\nConditional edges"]
-    AG --> ND["📂 nodes/"]
-
-    ND --> N1F["📄 node1_load.py\nCSV loading\nMulti-encoding + NUL cleanup"]
-    ND --> N2F["📄 node2_eda.py\nStats + 4 matplotlib charts"]
-    ND --> N3F["📄 node3_problem_detection.py\nClassification / Regression / Clustering"]
-    ND --> N4F["📄 node4_feature_prep.py\nColumnTransformer pipeline\nHigh cardinality drop"]
-    ND --> N5F["📄 node5_model_selection.py\nLogReg · DT · RF · XGBoost"]
-    ND --> N6F["📄 node6_tuning.py\nGridSearchCV 5-fold CV"]
-    ND --> N7F["📄 node7_explanation.py\nSHAP + Groq LLM"]
-
-    API --> SRV["📄 server.py\nFastAPI endpoints\nPOST /analyze\nGET /chart/filepath"]
-
-    FE --> PKG["📄 package.json"]
-    FE --> VITE["📄 vite.config.js\nProxy /analyze → :8000"]
-    FE --> IDX["📄 index.html"]
-    FE --> SRC["📂 src/"]
-
-    SRC --> APP["📄 App.jsx\nRoot state + fetch"]
-    SRC --> CSS["📄 index.css\nDark theme CSS vars"]
-    SRC --> COMP["📂 components/"]
-
-    COMP --> HDR["📄 Header.jsx"]
-    COMP --> UPL["📄 UploadZone.jsx\nDrag-drop CSV"]
-    COMP --> PPR["📄 PipelineProgress.jsx\n7-step animated tracker"]
-    COMP --> RDB["📄 ResultsDashboard.jsx\nTab controller"]
-    COMP --> CRD["📄 Card.jsx\nReusable dark card"]
-    COMP --> TABS["📂 tabs/"]
-
-    TABS --> T1["📄 OverviewTab.jsx\nStats · Problem · Winner"]
-    TABS --> T2["📄 EDATab.jsx\nMissing values · Charts"]
-    TABS --> T3["📄 ModelsTab.jsx\nComparison table + bars"]
-    TABS --> T4["📄 ResultsTab.jsx\nHyperparams · SHAP chart"]
-    TABS --> T5["📄 ExplainTab.jsx\nGroq LLM explanation"]
-
-    style ROOT fill:#f59e0b,color:#000
-    style BE fill:#3b82f6,color:#fff
-    style FE fill:#8b5cf6,color:#fff
-    style AG fill:#3b82f6,color:#fff
-    style ND fill:#10b981,color:#fff
-    style API fill:#3b82f6,color:#fff
-    style SRC fill:#8b5cf6,color:#fff
-    style COMP fill:#8b5cf6,color:#fff
-    style TABS fill:#8b5cf6,color:#fff
-    style OUT fill:#10b981,color:#fff
+```autonomous-data-scientist/
+│
+├── README.md
+├── .gitignore
+│
+├── backend/
+│   ├── main.py
+│   ├── requirements.txt
+│   ├── .env.example
+│   │
+│   ├── agent/
+│   │   ├── __init__.py
+│   │   ├── state.py
+│   │   ├── graph.py
+│   │   └── nodes/
+│   │       ├── __init__.py
+│   │       ├── node1_load.py
+│   │       ├── node2_eda.py
+│   │       ├── node3_problem_detection.py
+│   │       ├── node4_feature_prep.py
+│   │       ├── node5_model_selection.py
+│   │       ├── node6_tuning.py
+│   │       └── node7_explanation.py
+│   │
+│   ├── api/
+│   │   ├── __init__.py
+│   │   └── server.py
+│   │
+│   └── outputs/
+│       └── charts/
+│
+└── frontend/
+    ├── index.html
+    ├── package.json
+    ├── vite.config.js
+    └── src/
+        ├── main.jsx
+        ├── App.jsx
+        ├── index.css
+        └── components/
+            ├── Card.jsx
+            ├── Header.jsx
+            ├── UploadZone.jsx
+            ├── PipelineProgress.jsx
+            ├── ResultsDashboard.jsx
+            └── tabs/
+                ├── OverviewTab.jsx
+                ├── EDATab.jsx
+                ├── ModelsTab.jsx
+                ├── ResultsTab.jsx
+                └── ExplainTab.jsx
 ```
 
 ---
