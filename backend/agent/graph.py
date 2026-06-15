@@ -3,8 +3,15 @@
 # WHY a separate graph.py?
 # Nodes likhna alag kaam hai, unhe connect karna alag.
 # graph.py = wiring file. Yahan decide hota hai:
-#   - Kaunsa node kaunse ke baad aata hai
+#   - Kaunsa node kaunse ke baad aata hai (edges)
 #   - Conditional edges: error hua toh pipeline rok do
+#   - Final report kaise assemble hoga
+#
+# LangGraph ka flow:
+# START → load_validate → (error?) → END
+#                       → eda → detect_problem → prepare_features
+#                         → model_selection → tuning → explain
+#                         → assemble_report → END
 
 from langgraph.graph import StateGraph, END
 
@@ -18,11 +25,14 @@ from agent.nodes.node6_tuning import tune_best_model
 from agent.nodes.node7_explanation import explain_results
 
 
-# ── Final report assembler (not a LangGraph node, just a helper) ─────────────
 def assemble_report(state: AgentState) -> dict:
     """
-    Sab nodes ke output ko ek clean JSON report mein bundle karo.
-    FastAPI yeh report user ko return karega.
+    Sab nodes ke outputs ko ek clean JSON report mein bundle karo.
+    FastAPI yeh report directly user ko return karega.
+
+    WHY separate function?
+    Har node sirf apna kaam karta hai — bundling ka kaam alag node mein.
+    Clean separation of concerns.
     """
     return {
         "final_report": {
@@ -32,7 +42,7 @@ def assemble_report(state: AgentState) -> dict:
                 "missing_values": state["eda_summary"]["missing_values"],
                 "numeric_columns": state["eda_summary"]["numeric_columns"],
                 "categorical_columns": state["eda_summary"]["categorical_columns"],
-                "charts": state["chart_paths"],
+                "charts": state.get("chart_base64s", []),   # base64 list [{name, data}]
             },
             "problem": {
                 "type": state["problem_type"],
@@ -48,23 +58,22 @@ def assemble_report(state: AgentState) -> dict:
                 "final_score": state["tuned_score"],
             },
             "explanation": {
-                "shap_chart": state["shap_chart_path"],
+                "shap_chart": state.get("shap_chart_b64"),   # base64 PNG string
                 "llm_text": state["llm_explanation"],
             },
         }
     }
 
 
-# ── Conditional edge function ─────────────────────────────────────────────────
 def check_load_error(state: AgentState) -> str:
     """
-    Node 1 ke baad check karo — load error tha?
-    Agar haan → pipeline rok do (END).
-    Agar nahi → EDA continue karo.
+    Conditional edge function — Node 1 ke baad check karo.
 
     WHY conditional edges?
     LangGraph mein har edge ya toh fixed hoti hai ya conditional.
     Conditional = function run karo, output string ke basis par next node decide karo.
+    "error" → END (pipeline rok do)
+    "continue" → eda (aage badho)
     """
     if state.get("load_error"):
         print(f"\n  ✗ Load failed: {state['load_error']} — stopping pipeline")
@@ -72,58 +81,57 @@ def check_load_error(state: AgentState) -> str:
     return "continue"
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# BUILD THE GRAPH
-# ════════════════════════════════════════════════════════════════════════════
-
 def build_graph():
     """
     LangGraph StateGraph banao with all 7 nodes + conditional error handling.
     Returns a compiled graph ready to invoke.
     """
 
-    # ── Create the graph with our state schema ────────────────────────────────
+    # ── Graph create karo with state schema ──────────────────────────────────
     graph = StateGraph(AgentState)
 
-    # ── Add all nodes ─────────────────────────────────────────────────────────
-    # add_node("name", function) — function = (state) → dict
-    graph.add_node("load_validate", load_and_validate)
-    graph.add_node("eda", run_eda)
-    graph.add_node("detect_problem", detect_problem_type)
+    # ── Nodes add karo ───────────────────────────────────────────────────────
+    # add_node("naam", function) — function signature: (state) → dict
+    graph.add_node("load_validate",   load_and_validate)
+    graph.add_node("eda",             run_eda)
+    graph.add_node("detect_problem",  detect_problem_type)
     graph.add_node("prepare_features", prepare_features)
     graph.add_node("model_selection", select_best_model)
-    graph.add_node("tuning", tune_best_model)
-    graph.add_node("explain", explain_results)
+    graph.add_node("tuning",          tune_best_model)
+    graph.add_node("explain",         explain_results)
     graph.add_node("assemble_report", assemble_report)
 
     # ── Entry point ───────────────────────────────────────────────────────────
     graph.set_entry_point("load_validate")
 
     # ── Conditional edge after Node 1 ────────────────────────────────────────
-    # If error → END, else → eda
+    # check_load_error return karta hai "error" ya "continue"
+    # {return_value: next_node} mapping neeche hai
     graph.add_conditional_edges(
-        "load_validate",                  # Source node
-        check_load_error,                 # Function that returns a string
+        "load_validate",
+        check_load_error,
         {
-            "error": END,                 # "error" string → go to END
-            "continue": "eda",            # "continue" string → go to eda
+            "error": END,        # Load fail → pipeline band
+            "continue": "eda",   # Load success → EDA chalao
         }
     )
 
-    # ── Fixed edges (linear pipeline) ────────────────────────────────────────
-    graph.add_edge("eda", "detect_problem")
-    graph.add_edge("detect_problem", "prepare_features")
+    # ── Fixed linear edges ────────────────────────────────────────────────────
+    # Yeh nodes ek ke baad ek run karte hain — koi branching nahi
+    graph.add_edge("eda",              "detect_problem")
+    graph.add_edge("detect_problem",   "prepare_features")
     graph.add_edge("prepare_features", "model_selection")
-    graph.add_edge("model_selection", "tuning")
-    graph.add_edge("tuning", "explain")
-    graph.add_edge("explain", "assemble_report")
-    graph.add_edge("assemble_report", END)
+    graph.add_edge("model_selection",  "tuning")
+    graph.add_edge("tuning",           "explain")
+    graph.add_edge("explain",          "assemble_report")
+    graph.add_edge("assemble_report",  END)
 
     # ── Compile ───────────────────────────────────────────────────────────────
-    # WHY compile? LangGraph validates the graph (no orphan nodes, no cycles, etc.)
-    # and returns an optimized runnable object.
+    # WHY compile? LangGraph graph validate karta hai (orphan nodes check,
+    # cycle detection etc.) aur ek optimized runnable object return karta hai.
     return graph.compile()
 
 
-# Singleton — ek baar build karo, reuse karo
+# Singleton — ek baar build karo server start pe, har request pe reuse karo
+# WHY? Graph build karna expensive hai — compilation + validation hota hai
 agent_graph = build_graph()
